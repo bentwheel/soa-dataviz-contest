@@ -1,6 +1,6 @@
 ---
 title: "Dataviz contest draft"
-author: "Seth Lester"
+author: "C. Seth Lester, ASA"
 date: "12/19/2020"
 output: html_document
 runtime: shiny
@@ -28,113 +28,15 @@ First we will load the CSV files listed on the SOA website. The complete end-to-
 
 ```{r load-data, include=FALSE}
 
-library(readr)
-library(tidyverse)
-library(lubridate)
-
-# Reset flags
-warn_message <- ""
-err_message <- ""
-
-zipfile_rm_flag <- NULL
-file_unzip_err_flag <- NULL
-refresh_err_flag <- NULL
-data_dl_err_flag <- NULL
-pdf_dl_err_flag <- NULL
-parse_errors_flag <- NULL
-
-
-tryCatch(
-  {
-    # Remove old data directory contents
-    refresh_err_flag <- as.logical(unlink(c("./soa_data", "./contest_rules.pdf"), recursive=T))
-    
-    # Check for success, issue error if no success
-    if(refresh_err_flag) {
-      err_message <- paste0(err_message, "Error removing previously downloaded SOA contents.", sep="\n")
-    }
-    
-    # Download dataset
-    data_dl_err_flag <- as.logical(download.file("https://www.soa.org/globalassets/assets/files/resources/research-report/2020/data-visualization-csv-files.zip", 
-                  "soa_data.zip", 
-                  method = "auto", 
-                  quiet = FALSE,
-                  mode = "wb"))
-    
-    if(data_dl_err_flag) {
-      err_message <- paste0(err_message, "ERROR: Couldn't download SOA datasets.", sep="\n")
-    }
-    
-    #Download PDF of rules and guidelines
-    pdf_dl_err_flag <- as.logical(download.file("https://www.soa.org/globalassets/assets/files/static-pages/research/opportunities/2020-data-visualization-contest.pdf", 
-                  "contest_rules.pdf", 
-                  method = "auto", 
-                  quiet = FALSE,
-                  mode = "wb"))
-    
-    if(pdf_dl_err_flag) {
-      err_message <- paste0(err_message, "ERROR: Couldn't download SOA contest rules PDF file.", sep="\n")
-    }
-
-    #Uncompress downloaded data
-    unzip(zipfile="./soa_data.zip",
-          overwrite=T,
-          exdir="./soa_data/",
-          junkpaths=T)
-    
-    #Check that the uncompress operation went OK.
-    file_unzip_err_flag = !max(str_detect(dir(), "soa_data"))
-  
-    if(file_unzip_err_flag) {
-      err_message <- paste0(err_message, "ERROR: Couldn't unzip downloaded CSV package.", sep="\n")
-    }
-      
-    #Remove zipfile 
-    zipfile_rm_flag <- as.logical(unlink("./soa_data.zip"))
-  
-    if(zipfile_rm_flag) {
-      warn_message <- paste0(err_message, "WARNING: Couldn't remove zipfile.", sep="\n")
-    }
-    
-    #Read and parse SOA sales dataset
-    sales_data <- read_csv("soa_data/Data Visualization - Mockup Sales Data.csv",
-        col_types = cols(`Quoted Benefit` = col_number(),
-            `Quoted Premium` = col_number(), 
-            `Date of Quote` = col_date(format = "%m/%d/%Y"), 
-            `Date Application Received` = col_date(format = "%m/%d/%Y"), 
-            `Per mille Loading` = col_number(), 
-            `Date of UW Decision` = col_date(format = "%m/%d/%Y"), 
-            `Date of Purchase` = col_date(format = "%m/%d/%Y"), 
-            `Purchase Benefit` = col_character(), 
-            `Purchase Premium` = col_character()))
-    
-    #Monitor parsing issues
-    import_log <- problems(sales_data) # no parse issues?
-    parse_errors_flag <- as.logical(count(import_log)$n)
-    if(parse_errors_flag) {
-      warn_message <- paste0(warn_message, "There were issues with data typing in parsing the data. Errors stored in 'import_log' variable.", sep="\n")
-    }
-    
-    #Parse oddly-formatted numeric values in CSV file
-    sales_data <- sales_data %>% 
-      mutate_at(vars(`Purchase Benefit`, `Purchase Premium`), ~ parse_number(., na=("$-")))
-    
-    print("Data acquisition & parsing was successful!")
-  },
-  warning = function(w) {paste0(w)},
-  error = function(e) {paste0(e)}
-)
+source("./contest_loader.R")
 
 ```
 
 ## Data quality analysis
 
-We owe the dataset a quick once-over to determine:
-1. Inconsistent values (e.g., 
-
-
-
-
+We owe the dataset an ASOP 23 once-over to determine:
+1. Inconsistent values (e.g., in the sales data, date of the quote precedes app date)
+2. Missing or problematic values (e.g. outliers)
 
 ## Inputs and Outputs
 
