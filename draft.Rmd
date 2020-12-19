@@ -1,0 +1,181 @@
+---
+title: "Dataviz contest draft"
+author: "Seth Lester"
+date: "12/19/2020"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
+
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+
+# Data Exploration
+
+Data visualization is a useful storytelling tool, but also plays an important role for the analyst in forming a comprehensive understanding of the data. In this section we will carry out the following tasks:
+
+1. **Download the data** directly from the [SOA contest page](https://www.soa.org/research/opportunities/2020-data-visualization-contest/) to ensure that the most recent and updated data file is being used. Updates to field structure, factor delineation, or file type also will potentially cause program errors, which will serve to alert me to potential changes to the source data that may have occurred outside of my knowledge.
+2. **Deflate the data** directly from the downloaded zipfile.
+3. **Read and parse the data** from the relevant uncompressed CSV file.
+
+## Download, uncompress, read and parse the SOA dataset
+
+First we will load the CSV files listed on the SOA website. The complete end-to-end process to download, deflate, and parse the data from the CSV files offered by the SOA is detailed in the accompanying RMD file (code and output is suppressed to make for a prettier overall appearance of the final knitted document).
+
+```{r load-data, include=FALSE}
+
+library(readr)
+library(tidyverse)
+library(lubridate)
+
+# Reset flags
+warn_message <- ""
+err_message <- ""
+
+zipfile_rm_flag <- NULL
+file_unzip_err_flag <- NULL
+refresh_err_flag <- NULL
+data_dl_err_flag <- NULL
+pdf_dl_err_flag <- NULL
+parse_errors_flag <- NULL
+
+
+tryCatch(
+  {
+    # Remove old data directory contents
+    refresh_err_flag <- as.logical(unlink(c("./soa_data", "./contest_rules.pdf"), recursive=T))
+    
+    # Check for success, issue error if no success
+    if(refresh_err_flag) {
+      err_message <- paste0(err_message, "Error removing previously downloaded SOA contents.", sep="\n")
+    }
+    
+    # Download dataset
+    data_dl_err_flag <- as.logical(download.file("https://www.soa.org/globalassets/assets/files/resources/research-report/2020/data-visualization-csv-files.zip", 
+                  "soa_data.zip", 
+                  method = "auto", 
+                  quiet = FALSE,
+                  mode = "wb"))
+    
+    if(data_dl_err_flag) {
+      err_message <- paste0(err_message, "ERROR: Couldn't download SOA datasets.", sep="\n")
+    }
+    
+    #Download PDF of rules and guidelines
+    pdf_dl_err_flag <- as.logical(download.file("https://www.soa.org/globalassets/assets/files/static-pages/research/opportunities/2020-data-visualization-contest.pdf", 
+                  "contest_rules.pdf", 
+                  method = "auto", 
+                  quiet = FALSE,
+                  mode = "wb"))
+    
+    if(pdf_dl_err_flag) {
+      err_message <- paste0(err_message, "ERROR: Couldn't download SOA contest rules PDF file.", sep="\n")
+    }
+
+    #Uncompress downloaded data
+    unzip(zipfile="./soa_data.zip",
+          overwrite=T,
+          exdir="./soa_data/",
+          junkpaths=T)
+    
+    #Check that the uncompress operation went OK.
+    file_unzip_err_flag = !max(str_detect(dir(), "soa_data"))
+  
+    if(file_unzip_err_flag) {
+      err_message <- paste0(err_message, "ERROR: Couldn't unzip downloaded CSV package.", sep="\n")
+    }
+      
+    #Remove zipfile 
+    zipfile_rm_flag <- as.logical(unlink("./soa_data.zip"))
+  
+    if(zipfile_rm_flag) {
+      warn_message <- paste0(err_message, "WARNING: Couldn't remove zipfile.", sep="\n")
+    }
+    
+    #Read and parse SOA sales dataset
+    sales_data <- read_csv("soa_data/Data Visualization - Mockup Sales Data.csv",
+        col_types = cols(`Quoted Benefit` = col_number(),
+            `Quoted Premium` = col_number(), 
+            `Date of Quote` = col_date(format = "%m/%d/%Y"), 
+            `Date Application Received` = col_date(format = "%m/%d/%Y"), 
+            `Per mille Loading` = col_number(), 
+            `Date of UW Decision` = col_date(format = "%m/%d/%Y"), 
+            `Date of Purchase` = col_date(format = "%m/%d/%Y"), 
+            `Purchase Benefit` = col_character(), 
+            `Purchase Premium` = col_character()))
+    
+    #Monitor parsing issues
+    import_log <- problems(sales_data) # no parse issues?
+    parse_errors_flag <- as.logical(count(import_log)$n)
+    if(parse_errors_flag) {
+      warn_message <- paste0(warn_message, "There were issues with data typing in parsing the data. Errors stored in 'import_log' variable.", sep="\n")
+    }
+    
+    #Parse oddly-formatted numeric values in CSV file
+    sales_data <- sales_data %>% 
+      mutate_at(vars(`Purchase Benefit`, `Purchase Premium`), ~ parse_number(., na=("$-")))
+    
+    print("Data acquisition & parsing was successful!")
+  },
+  warning = function(w) {paste0(w)},
+  error = function(e) {paste0(e)}
+)
+
+```
+
+## Data quality analysis
+
+We owe the dataset a quick once-over to determine:
+1. Inconsistent values (e.g., 
+
+
+
+
+
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+
+```{r eruptions, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks", label = "Number of bins:",
+              choices = c(10, 20, 35, 50), selected = 20),
+  
+  sliderInput("bw_adjust", label = "Bandwidth adjustment:",
+              min = 0.2, max = 2, value = 1, step = 0.2)
+)
+
+renderPlot({
+  hist(faithful$eruptions, probability = TRUE, breaks = as.numeric(input$n_breaks),
+       xlab = "Duration (minutes)", main = "Geyser eruption duration")
+  
+  dens <- density(faithful$eruptions, adjust = input$bw_adjust)
+  lines(dens, col = "blue")
+})
+```
+
+## Embedded Application
+
+It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
+
+```{r tabsets, echo=FALSE}
+shinyAppDir(
+  system.file("examples/06_tabsets", package = "shiny"),
+  options = list(
+    width = "100%", height = 550
+  )
+)
+```
+
+Note the use of the `height` parameter to determine how much vertical space the embedded application should occupy.
+
+You can also use the `shinyApp` function to define an application inline rather then in an external directory.
+
+In all of R code chunks above the `echo = FALSE` attribute is used. This is to prevent the R code within the chunk from rendering in the document alongside the Shiny components.
+
+
+
