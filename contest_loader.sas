@@ -40,7 +40,7 @@ filename exper_z zip "&ziploc" member="&exper_path";
 filename sales_z zip "&ziploc" member="&sales_path";
 
 /* Create data download directory if it does not exist, assign libref to directory */
-libname soa_data "/folders/myfolders/sasuser.v94/git-local/soa-dataviz-contest/soa_data";
+libname soa_data "/home/demoselest/sasuser.viya/soa-dataviz-contest/soa_data";
 
 /* Parse boolean values in CSV files */
 proc format;
